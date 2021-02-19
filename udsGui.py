@@ -12,8 +12,9 @@ class App(tk.Frame):
 
     def __init__(self, master):
         tk.Frame.__init__(self, master)
-        self.winfo_toplevel().title("UDS on Python")
-        self.frame = tk.Frame(window)
+        self.winfo_toplevel().title("   UDS on Python")
+        master.iconphoto(False, tk.PhotoImage(file='logo.png'))
+        self.frame = tk.Frame(master)
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.tpTime = 0
         self.tpTimee = 0
@@ -22,19 +23,22 @@ class App(tk.Frame):
                                              bd=0, highlightthickness=0)
         self.requestTitleLabel = tk.Label(self.connectionTitleMenu,
                                           text='Configure the connection',
-                                          relief=tk.RIDGE)
-        self.requestTitleLabel.pack()
+                                          relief=tk.RIDGE,
+                                          font=('verdana', 10, 'bold'))
+        self.requestTitleLabel.pack(pady=15)
         # self.connectionTitleMenu.pack(side=tk.TOP)
         self.connectionTitleMenu.grid(row=0, column=0)
 # ------ communication menu
         self.communicationMenu = tk.Canvas(self.frame, width=600, height=100,
                                            bd=0, highlightthickness=0)
         self.reqIdLabel = tk.Label(self.communicationMenu, text='Request ID:')
-        self.reqId = tk.Entry(self.communicationMenu, bd=5, width=5)
+        self.reqId = tk.Entry(self.communicationMenu, bd=5, width=5,
+                              justify='center')
         self.reqId.insert(0, '757')
         self.reqId.config(state='disabled')
         self.resIdLabel = tk.Label(self.communicationMenu, text='Response ID:')
-        self.resId = tk.Entry(self.communicationMenu, bd=5, width=5)
+        self.resId = tk.Entry(self.communicationMenu, bd=5, width=5,
+                              justify='center')
         self.resId.insert(0, '7C1')
         self.resId.config(state='disabled')
         self.interface = tk.StringVar(window)
@@ -64,9 +68,9 @@ class App(tk.Frame):
                                            self.sensor,
                                            self.sensors[0])
         self.sensorOptions.config(state='disabled')
-        self.bdLabel = tk.Label(self.communicationMenu, text='Baudrate:',
-                                pady=10)
-        self.baudRate = tk.Entry(self.communicationMenu, bd=5, width=6)
+        self.bdLabel = tk.Label(self.communicationMenu, text='Baudrate:')
+        self.baudRate = tk.Entry(self.communicationMenu, bd=5, width=6,
+                                 justify='center')
         self.baudRate.insert(0, '500000')
         self.baudRate.config(state='disabled')
 
@@ -83,7 +87,7 @@ class App(tk.Frame):
         self.bdLabel.grid(row=0, column=2)
         self.baudRate.grid(row=0, column=3)
         # self.communicationMenu.pack(side=tk.TOP)
-        self.communicationMenu.grid(row=1, column=0)
+        self.communicationMenu.grid(row=1, column=0, pady=5)
 # ------ comm status
         self.commStatus = False
         self.commButton = tk.Button(self.communicationMenu, text="Connect",
@@ -91,8 +95,7 @@ class App(tk.Frame):
         self.commLabel = tk.Label(self.communicationMenu,
                                   text='Comm status:')
         self.commStatuss = tk.Label(self.communicationMenu,
-                                    text=str(self.commStatus),
-                                    pady=10)
+                                    text=str(self.commStatus))
         self.commLabel.grid(row=3, column=2)
         self.commStatuss.grid(row=3, column=3)
         self.commButton.grid(row=3, column=1)
@@ -101,8 +104,9 @@ class App(tk.Frame):
                                           bd=0, highlightthickness=0)
         self.requestTitle = tk.Label(self.requestTitleMenu,
                                      text='Select a service',
-                                     relief=tk.RIDGE)
-        self.requestTitle.pack(side=tk.TOP)
+                                     relief=tk.RIDGE,
+                                     font=('verdana', 10, 'bold'))
+        self.requestTitle.pack(side=tk.TOP, pady=15)
         # self.requestTitleMenu.pack(side=tk.TOP)
 # ------ request menu for BEG
         self.begRequestMenu = tk.Canvas(self.frame, width=600, height=400,
@@ -230,9 +234,9 @@ class App(tk.Frame):
             'SDA Vertical Alignment Angle': [0x22, 0xfc, 0x02],
             'SDA Status': [0x22, 0xfc, 0x03]}
         self.sguTPS = {
-            'ON - With response': [0, 0, 0],
-            'ON - Without response': [0, 0, 0],
-            'OFF': [0, 0, 0]}
+            'ON - With response': [0x3e, 0x00],
+            'ON - Without response': [0x3e, 0x80],
+            'OFF': ''}
         self.sguRequestMenu = tk.Canvas(self.frame, width=600, height=400,
                                         bd=0, highlightthickness=0)
         self.sguDID = tk.StringVar(self)
@@ -250,8 +254,7 @@ class App(tk.Frame):
         self.sguSend = tk.Button(self.sguRequestMenu, text="Send",
                                  command=self.sguSend)
         self.sguResponse = tk.Label(self.sguRequestMenu,
-                                    text='Response: ',
-                                    pady=10)
+                                    text='Response: ')
         self.sguDIDLabel.grid(row=1, column=0)
         self.sguDIDOptions.grid(row=1, column=1)
         self.sguSend.grid(row=2, column=0)
@@ -359,79 +362,105 @@ class App(tk.Frame):
                     self.response['text'] = 'Response: ' + str(msg)
 
     def configComm(self):
-        '''reqId, resId = self.reqId.get(), self.resId.get()
-        interface, device = self.interface.get(), self.device.get()
-        baudrate = self.baudRate.get()
-        aux = True
-        msg = ''
-        if not all(c in string.hexdigits for c in reqId) or reqId == '':
-            msg = 'Invalid redId'
-            aux = False
-        else:
-            reqId = int(reqId, 16)
-        if not all(c in string.hexdigits for c in resId) or resId == '':
-            msg = 'Invalid resId'
-            aux = False
-        else:
-            resId = int(resId, 16)
-        if interface not in self.interfaces or interface == '':
-            msg = 'Invalid interface'
-            aux = False
-        if device not in self.devices or device == '':
-            msg = 'Invalid device'
-            aux = False
-        if not all(c in string.digits for c in baudrate) or baudrate == '':
-            msg = 'Invalid baudrate'
-            aux = False
-        if aux:
-            try:
-                self.a = Uds(reqId=reqId, resId=resId, interface=interface,
-                             device=device, baudrate=baudrate)
-                print(self.a)
-                self.commLabel.config(text='Status: connected')
-                self.serviceOptions.config(state='normal')
-                self.B3.config(state='normal')
-            except Exception:
-                self.commLabel.config(text='Status: no connection')
-                self.serviceOptions.config(state='disabled')
-                self.B3.config(state='disabled')
-                messagebox.showinfo('Error', 'There is no connection')
-        else:
-            messagebox.showinfo('Error', msg)'''
-        self.commStatus = not self.commStatus
-        self.commStatuss.config(text=str(self.commStatus))
         if not self.commStatus:
+            aux = True
+            reqId, resId = self.reqId.get(), self.resId.get()
+            interface, device = self.interface.get(), self.device.get()
+            baudrate = self.baudRate.get()
+            msg = ''
+            if not all(c in string.hexdigits for c in reqId) or reqId == '':
+                msg = 'Invalid redId'
+                aux = False
+            else:
+                reqId = int(reqId, 16)
+            if not all(c in string.hexdigits for c in resId) or resId == '':
+                msg = 'Invalid resId'
+                aux = False
+            else:
+                resId = int(resId, 16)
+            if interface not in self.interfaces or interface == '':
+                msg = 'Invalid interface'
+                aux = False
+            if device not in self.devices or device == '':
+                msg = 'Invalid device'
+                aux = False
+            if not all(c in string.digits for c in baudrate) or baudrate == '':
+                msg = 'Invalid baudrate'
+                aux = False
+            if aux:
+                try:
+                    self.a = Uds(reqId=reqId, resId=resId, interface=interface,
+                                 device=device, baudrate=baudrate)
+                    print(self.a)
+                    self.commStatus = True
+                    self.commButton.config(text='Disconnect')
+                    self.requestTitleMenu.grid(row=2, column=0)
+                    self.sguRequestMenu.grid(row=3, column=0, pady=5)
+                    self.terminalMenu.grid(row=4, column=0)
+                    self.termPrint('connected')
+                except Exception:
+                    messagebox.showinfo('Error', 'There is no connection')
+                    self.commStatus = False
+            else:
+                messagebox.showinfo('Error', msg)
+        else:
+            try:
+                self.a.disconnect()
+                self.commButton.config(text='Connect')
+                self.requestTitleMenu.grid_forget()
+                self.sguRequestMenu.grid_forget()
+                self.terminalMenu.grid_forget()
+                self.commStatus = False
+            except Exception:
+                messagebox.showinfo('Error', 'Unable to disconnect')
+        self.commStatuss.config(text=str(self.commStatus))
+        '''if not self.commStatus:
             self.commButton.config(text='Connect')
             self.requestTitleMenu.grid_forget()
             self.sguRequestMenu.grid_forget()
             self.terminalMenu.grid_forget()
         else:
             self.commButton.config(text='Disconnect')
-            # self.requestTitleMenu.pack(side=tk.TOP)
-            # self.sguRequestMenu.pack(side=tk.TOP)
             self.requestTitleMenu.grid(row=2, column=0)
-            self.sguRequestMenu.grid(row=3, column=0)
+            self.sguRequestMenu.grid(row=3, column=0, pady=5)
             self.terminalMenu.grid(row=4, column=0)
-            self.termPrint('connected')
+            self.termPrint('connected')'''
 
     def sguSend(self):
-        self.termPrint(self.sguDID.get())
+        msg = self.sguDIDS.get(self.sguDID.get())
+        self.termPrint(msg)
+        try:
+            msg = self.a.send(msg)
+            self.termPrint(msg)
+        except Exception:
+            self.termPrint('No response')
 
     def testerPresent(self, *args):
         self.tpTimee += 4
         while self.commStatus and self.sguTP.get() == 'ON - With response' or self.sguTP.get() == 'ON - Without response':  # noqa: E501
             if self.tpTimee - self.tpTime >= 4:
                 self.tpTime, self.tpTimee = time(), time()
-                self.termPrint(self.sguTP.get())
+                msg = self.sguTPS.get(self.sguTP.get())
+                self.termPrint(msg)
+                try:
+                    msg = self.a.send(self.sguTPS.get(self.sguTP.get()))
+                    self.termPrint(msg)
+                except Exception:
+                    self.termPrint('No response')
             else:
                 self.tpTimee = time()
 
     def termPrint(self, info):
+        if type(info) is list:
+            _msg = []
+            for inf in info:
+                _msg.append(hex(inf))
+            info = str(_msg)
         now = datetime.now()
         now = now.strftime('%m/%d/%Y, %H:%M:%S')
         self.term.config(state=tk.NORMAL)
         self.term.insert('insert',
-                         now + ': ' + '\n' + info + '\n')
+                         now + ': ' + '\n' + (info) + '\n')
         self.term.see("end")
         self.term.config(state=tk.DISABLED)
 
