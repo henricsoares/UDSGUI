@@ -6,6 +6,11 @@ from time import time
 from threading import Thread
 import tkinter.scrolledtext as tkst
 from datetime import datetime
+from can.interface import Bus  # noqa: F401
+from udsoncan.connections import PythonIsoTpConnection  # noqa: F401
+from udsoncan.client import Client  # noqa: F401
+import isotp  # noqa: F401
+from udsoncan import Response  # noqa: F401
 
 
 class App(tk.Frame):
@@ -16,6 +21,8 @@ class App(tk.Frame):
         master.iconphoto(False, tk.PhotoImage(file='logo.png'))
         self.frame = tk.Frame(master)
         self.frame.pack(fill=tk.BOTH, expand=True)
+        self.conn = None
+        self.client = None
         self.tpTime = 0
         self.tpTimee = 0
 # ------ connection title
@@ -123,32 +130,35 @@ class App(tk.Frame):
                          'Control DTC Setting': 0x85,
                          'Security Access': 0x27}
         self.begDataToRead = {
-            'Read active diagnostic session': 0xF186,
-            'Read system supplier identifier': 0xF18A,
-            'Read ECU manufacturing date': 0xF18B,
-            'Read ECU serial number': 0xF18C,
-            'Read supplier ECU hardware number': 0xF192,
-            'Read system supplier ECU HW version number': 0xF193,
-            'Read system supplier ECU software number': 0xF194,
-            'Read ODXFileDataIdentifier': 0xF19E,
-            'Read enable/disable B messages': 0xFD11,
-            'Read configured CAN1 baud rate': 0xFD12,
-            'Read current CAN1 baud rate': 0xFD13,
-            'Read CAN1 diagnostics messages IDs': 0xFD14,
-            'Read object/filtered object message IDs': 0xFD15,
-            'Read last configured single CAN message ID': 0xFD16,
-            'Read radar ECU CAN message Ids': 0xFD17,
-            'Read object/filtered object message prioritization': 0xFD18,
-            'Read configured number of sent objects/filtered objects': 0xFD19,
-            'Read antenna modulation combinations': 0xFD26,
-            'Read CAN communication protocol': 0xFD27,
-            'Read mounting position': 0xFD28,
-            'Read current number of sent objects/filtered': 0xFD29,
-            'Read zone configuration': 0xFD60,
-            'Read layer': 0xFD61,
-            'Read enable/disable object/filtered object and/or zone message': 0xFD62,  # noqa: E501
-            'Read radar wave emission stop': 0xFD63,
-            'Read output coordinate system': 0xFD64}
+            'Read active diagnostic session': b'\x22\xF1\x86',
+            'Read system supplier identifier': b'\x22\xF1\x8A',
+            'Read ECU manufacturing date': b'\x22\xF1\x8B',
+            'Read ECU serial number': b'\x22\xF1\x8C',
+            'Read supplier ECU hardware number': b'\x22\xF1\x92',
+            'Read system supplier ECU HW version number': b'\x22\xF1\x93',
+            'Read system supplier ECU software number': b'\x22\xF1\x94',
+            'Read ODXFileDataIdentifier': b'\x22\xF1\x9E',
+            'Read enable/disable B messages': b'\x22\xFD\x11',
+            'Read configured CAN1 baud rate': b'\x22\xFD\x12',
+            'Read current CAN1 baud rate': b'\x22\xFD\x13',
+            'Read CAN1 diagnostics messages IDs': b'\x22\xFD\x14',
+            'Read object/filtered object message IDs': b'\x22\xFD\x15',
+            'Read last configured single CAN message ID': b'\x22\xFD\x16',
+            'Read radar ECU CAN message Ids': b'\x22\xFD\x17',
+            'Read object/filtered object message prioritization':
+            b'\x22\xFD\x18',
+            'Read configured number of sent objects/filtered objects':
+            b'\x22\xFD\x19',
+            'Read antenna modulation combinations': b'\x22\xFD\x26',
+            'Read CAN communication protocol': b'\x22\xFD\x27',
+            'Read mounting position': b'\x22\xFD\x28',
+            'Read current number of sent objects/filtered': b'\x22\xFD\x29',
+            'Read zone configuration': b'\x22\xFD\x60',
+            'Read layer': b'\x22\xFD\x61',
+            'Read enable/disable object/filtered object and/or zone message':
+            b'\x22\xFD\x62',
+            'Read radar wave emission stop': b'\x22\xFD\x63',
+            'Read output coordinate system': b'\x22\xFD\x64'}
         self.dataToWrite = {
             'Write enable/disable B messages': 0xFD11,
             'Write CAN1 baud rate': 0xFD12,
@@ -170,6 +180,7 @@ class App(tk.Frame):
 
         self.service = tk.StringVar(window)
         self.service.trace('w', self.updateData)
+        self.sensor.trace('w', self.updateIDS)
         self.serviceLabel = tk.Label(self.begRequestMenu, text='SID')
         self.serviceOptions = tk.OptionMenu(self.begRequestMenu, self.service,
                                             *self.begServices.keys())
@@ -188,51 +199,50 @@ class App(tk.Frame):
             'Diagnostic Session Control': self.DSCSF,
             'ECU Reset': self.ECUR,
             'Read DTC Information': self.RDTCI}
-        self.sFunction = tk.StringVar(self)
-        self.sFunctionLabel = tk.Label(self.begRequestMenu, text='SubFn')
-        self.sFunctionOptions = tk.OptionMenu(self.begRequestMenu,
-                                              self.sFunction, '')
-        self.sFunctionOptions['menu'].delete(0, tk.END)
-
-        self.dataIdentifier = tk.StringVar(self)
-        self.dIdentifierLabel = tk.Label(self.begRequestMenu, text='DID')
-        self.dIdentifierOptions = tk.OptionMenu(self.begRequestMenu,
-                                                self.dataIdentifier, '')
-        self.dIdentifierOptions['menu'].delete(0, tk.END)
-
-        self.dRecordLabel = tk.Label(self.begRequestMenu, text='DataRec')
-        self.dataRecord = tk.Entry(self.begRequestMenu, bd=5, width=20,
-                                   state=tk.DISABLED)
-
-        self.B3 = tk.Button(self.begRequestMenu, text="Send",
-                            command=self.sendRequest)
-        self.B3.config(state='disabled')
-        self.serviceLabel.pack(side=tk.LEFT)
-        self.serviceOptions.pack(side=tk.LEFT)
-        self.sFunctionLabel.pack(side=tk.LEFT)
-        self.sFunctionOptions.pack(side=tk.LEFT)
-        self.dIdentifierLabel.pack(side=tk.LEFT)
-        self.dIdentifierOptions.pack(side=tk.LEFT)
-        self.dRecordLabel.pack(side=tk.LEFT)
-        self.dataRecord.pack(side=tk.LEFT)
-        self.B3.pack(side=tk.LEFT)
+        self.begTPS = {
+            'ON - With response': [0x3e, 0x00],
+            'OFF': ''}
+        self.begRequestMenu = tk.Canvas(self.frame, width=600, height=400,
+                                        bd=0, highlightthickness=0)
+        self.begDID = tk.StringVar(self)
+        self.begDIDLabel = tk.Label(self.begRequestMenu,
+                                    text='Read Data By Identifier: ')
+        self.begDIDOptions = tk.OptionMenu(self.begRequestMenu, self.begDID,
+                                           *self.begDataToRead.keys())
+        self.begTP = tk.StringVar(self)
+        self.begTP.set('OFF')
+        self.begTP.trace('w', self.startTrd)
+        self.begTPLabel = tk.Label(self.begRequestMenu,
+                                   text='Tester Present: ')
+        self.begTPOptions = tk.OptionMenu(self.begRequestMenu, self.begTP,
+                                          *self.begTPS.keys())
+        self.begSend = tk.Button(self.begRequestMenu, text="Send",
+                                 command=self.sendMsg)
+        self.begResponse = tk.Label(self.begRequestMenu,
+                                    text='Response: ')
+        self.begDIDLabel.grid(row=1, column=0)
+        self.begDIDOptions.grid(row=1, column=1)
+        self.begSend.grid(row=2, column=0)
+        self.begResponse.grid(row=2, column=1)
+        self.begTPLabel.grid(row=0, column=0)
+        self.begTPOptions.grid(row=0, column=1)
         # self.begRequestMenu.pack(side=tk.TOP)
 # ------ request menu for SGU
         self.sguDIDS = {
-            'Programming Attempt Counter': [0x22, 0xf1, 0x10],
-            'Boot Software Identification': [0x22, 0xf1, 0x80],
-            'Application Software Identification': [0x22, 0xf1, 0x81],
-            'Active Diagnostic Session': [0x22, 0xf1, 0x86],
-            'ECU Voltage': [0x22, 0xf1, 0x87],
-            'ECU Software Number': [0x22, 0xf1, 0x88],
-            'ECU Manufacturing Date': [0x22, 0xf1, 0x8b],
-            'Serial Number': [0x22, 0xf1, 0x8c],
-            'ECU Hardware Partnumber': [0x22, 0xf1, 0x91],
-            'ECU Hardware Version Information': [0x22, 0xf1, 0x93],
-            'ECU Temperature': [0x22, 0xf1, 0x94],
-            'SDA Horizontal Misalignment Angle': [0x22, 0xfc, 0x01],
-            'SDA Vertical Alignment Angle': [0x22, 0xfc, 0x02],
-            'SDA Status': [0x22, 0xfc, 0x03]}
+            'Programming Attempt Counter': b'\x22\xf1\x10',
+            'Boot Software Identification': b'\x22\xf1\x80',
+            'Application Software Identification': b'\x22\xf1\x81',
+            'Active Diagnostic Session': b'\x22\xf1\x86',
+            'ECU Voltage': b'\x22\xf1\x87',
+            'ECU Software Number': b'\x22\xf1\x88',
+            'ECU Manufacturing Date': b'\x22\xf1\x8b',
+            'Serial Number': b'\x22\xf1\x8c',
+            'ECU Hardware Partnumber': b'\x22\xf1\x91',
+            'ECU Hardware Version Information': b'\x22\xf1\x93',
+            'ECU Temperature': b'\x22\xf1\x94',
+            'SDA Horizontal Misalignment Angle': b'\x22\xfc\x01',
+            'SDA Vertical Alignment Angle': b'\x22\xfc\x02',
+            'SDA Status': b'\x22\xfc\x03'}
         self.sguTPS = {
             'ON - With response': [0x3e, 0x00],
             'ON - Without response': [0x3e, 0x80],
@@ -252,7 +262,7 @@ class App(tk.Frame):
         self.sguTPOptions = tk.OptionMenu(self.sguRequestMenu, self.sguTP,
                                           *self.sguTPS.keys())
         self.sguSend = tk.Button(self.sguRequestMenu, text="Send",
-                                 command=self.sguSend)
+                                 command=self.sendMsg)
         self.sguResponse = tk.Label(self.sguRequestMenu,
                                     text='Response: ')
         self.sguDIDLabel.grid(row=1, column=0)
@@ -306,6 +316,26 @@ class App(tk.Frame):
             self.sFunction.set('')
             menu1 = self.sFunctionOptions['menu']
             menu1.delete(0, 'end')
+
+    def updateIDS(self, *args):
+        if self.sensor.get() == 'SGU':
+            self.reqId.config(state='normal')
+            self.resId.config(state='normal')
+            self.reqId.delete(0, 'end')
+            self.reqId.insert(0, '757')
+            self.resId.delete(0, 'end')
+            self.resId.insert(0, '7C1')
+            self.reqId.config(state='disabled')
+            self.resId.config(state='disabled')
+        elif self.sensor.get() == 'BEG':
+            self.resId.config(state='normal')
+            self.reqId.config(state='normal')
+            self.reqId.delete(0, 'end')
+            self.reqId.insert(0, '18DA2AF1')
+            self.resId.delete(0, 'end')
+            self.resId.insert(0, '18DAFA2A')
+            self.resId.config(state='disabled')
+            self.reqId.config(state='disabled')
 
     def sendRequest(self):
         if self.service.get() == '':
@@ -364,40 +394,63 @@ class App(tk.Frame):
     def configComm(self):
         if not self.commStatus:
             aux = True
-            reqId, resId = self.reqId.get(), self.resId.get()
-            interface, device = self.interface.get(), self.device.get()
-            baudrate = self.baudRate.get()
             msg = ''
-            if not all(c in string.hexdigits for c in reqId) or reqId == '':
-                msg = 'Invalid redId'
+            if self.sensor.get() != 'SGU' and self.sensor.get() != 'BEG':
+                '''reqId, resId = self.reqId.get(), self.resId.get()
+                interface, device = self.interface.get(), self.device.get()
+                baudrate = self.baudRate.get()
+                if not all(c in string.hexdigits for c in reqId) or\
+                   reqId == '':
+                    msg = 'Invalid redId'
+                    aux = False
+                else:
+                    reqId = int(reqId, 16)
+                if not all(c in string.hexdigits for c in resId) or\
+                   resId == '':
+                    msg = 'Invalid resId'
+                    aux = False
+                else:
+                    resId = int(resId, 16)
+                if interface not in self.interfaces or interface == '':
+                    msg = 'Invalid interface'
+                    aux = False
+                if device not in self.devices or device == '':
+                    msg = 'Invalid device'
+                    aux = False
+                if not all(c in string.digits for c in baudrate) or\
+                   baudrate == '':
+                    msg = 'Invalid baudrate'
+                    aux = False'''
                 aux = False
-            else:
-                reqId = int(reqId, 16)
-            if not all(c in string.hexdigits for c in resId) or resId == '':
-                msg = 'Invalid resId'
-                aux = False
-            else:
-                resId = int(resId, 16)
-            if interface not in self.interfaces or interface == '':
-                msg = 'Invalid interface'
-                aux = False
-            if device not in self.devices or device == '':
-                msg = 'Invalid device'
-                aux = False
-            if not all(c in string.digits for c in baudrate) or baudrate == '':
-                msg = 'Invalid baudrate'
-                aux = False
+                msg = "Device not supported."
             if aux:
                 try:
-                    self.a = Uds(reqId=reqId, resId=resId, interface=interface,
-                                 device=device, baudrate=baudrate)
-                    print(self.a)
+                    if self.sensor.get() == 'SGU':
+                        tp_addr = isotp.Address(isotp.AddressingMode.Normal_11bits,  # noqa: E501
+                                                txid=0x757,
+                                                rxid=0x7C1)
+                        bus = Bus(bustype='pcan',
+                                  channel='PCAN_USBBUS1',
+                                  bitrate=500000)
+                        stack = isotp.CanStack(bus=bus, address=tp_addr)
+                        self.conn = PythonIsoTpConnection(stack)
+                        self.sguRequestMenu.grid(row=3, column=0, pady=5)
+                    elif self.sensor.get() == 'BEG':
+                        tp_addr = isotp.Address(isotp.AddressingMode.Normal_29bits,  # noqa: E501
+                                                txid=0x18DA2AF1,
+                                                rxid=0x18DAFA2A)
+                        bus = Bus(bustype='pcan',
+                                  channel='PCAN_USBBUS1',
+                                  bitrate=500000)
+                        stack = isotp.CanStack(bus=bus, address=tp_addr)
+                        self.conn = PythonIsoTpConnection(stack)
+                        self.begRequestMenu.grid(row=3, column=0, pady=5)
                     self.commStatus = True
                     self.commButton.config(text='Disconnect')
                     self.requestTitleMenu.grid(row=2, column=0)
-                    self.sguRequestMenu.grid(row=3, column=0, pady=5)
                     self.terminalMenu.grid(row=4, column=0)
-                    self.termPrint('connected')
+                    self.termPrint('connected', 'Info')
+                    self.sensorOptions.config(state='disabled')
                 except Exception:
                     messagebox.showinfo('Error', 'There is no connection')
                     self.commStatus = False
@@ -405,35 +458,52 @@ class App(tk.Frame):
                 messagebox.showinfo('Error', msg)
         else:
             try:
-                self.a.disconnect()
                 self.commButton.config(text='Connect')
                 self.requestTitleMenu.grid_forget()
                 self.sguRequestMenu.grid_forget()
+                self.begRequestMenu.grid_forget()
                 self.terminalMenu.grid_forget()
                 self.commStatus = False
+                self.sensorOptions.config(state='normal')
             except Exception:
                 messagebox.showinfo('Error', 'Unable to disconnect')
         self.commStatuss.config(text=str(self.commStatus))
-        '''if not self.commStatus:
-            self.commButton.config(text='Connect')
-            self.requestTitleMenu.grid_forget()
-            self.sguRequestMenu.grid_forget()
-            self.terminalMenu.grid_forget()
-        else:
-            self.commButton.config(text='Disconnect')
-            self.requestTitleMenu.grid(row=2, column=0)
-            self.sguRequestMenu.grid(row=3, column=0, pady=5)
-            self.terminalMenu.grid(row=4, column=0)
-            self.termPrint('connected')'''
 
-    def sguSend(self):
-        msg = self.sguDIDS.get(self.sguDID.get())
-        self.termPrint(msg)
-        try:
+    def sendMsg(self):
+        with Client(self.conn, request_timeout=1,
+                    config={'exception_on_unexpected_response':
+                            False}) as client:
+            if self.sensor.get() == 'SGU':
+                if self.sguDID.get() != '':
+                    msg = self.sguDIDS.get(self.sguDID.get())
+                    try:
+                        client.send(msg)
+                        self.termPrint(msg, 'Request')
+                        payload = client.wait_frame(timeout=1)
+                        response = Response.from_payload(payload)  # noqa: F841
+                        self.termPrint(response, 'Response')
+                    except Exception as e:
+                        print(e)
+                else:
+                    messagebox.showinfo('Error', 'No service selected')
+            if self.sensor.get() == 'BEG':
+                if self.begDID.get() != '':
+                    msg = self.begDataToRead.get(self.begDID.get())
+                    try:
+                        client.send(msg)
+                        self.termPrint(msg, 'Request')
+                        payload = client.wait_frame(timeout=1)
+                        response = Response.from_payload(payload)  # noqa: F841, E501
+                        self.termPrint(response, 'Response')
+                    except Exception as e:
+                        print(e)
+                else:
+                    messagebox.showinfo('Error', 'No service selected')
+        '''try:
             msg = self.a.send(msg)
             self.termPrint(msg)
         except Exception:
-            self.termPrint('No response')
+            self.termPrint('No response')'''
 
     def testerPresent(self, *args):
         self.tpTimee += 4
@@ -450,17 +520,20 @@ class App(tk.Frame):
             else:
                 self.tpTimee = time()
 
-    def termPrint(self, info):
-        if type(info) is list:
+    def termPrint(self, msg, action):
+        '''if type(info) is list:
             _msg = []
             for inf in info:
                 _msg.append(hex(inf))
-            info = str(_msg)
+            info = str(_msg)'''
         now = datetime.now()
         now = now.strftime('%m/%d/%Y, %H:%M:%S')
+        if action == 'Request' or action == 'Response':
+            msg = msg.hex()
         self.term.config(state=tk.NORMAL)
         self.term.insert('insert',
-                         now + ': ' + '\n' + (info) + '\n')
+                         now + ': ' + '\n' + (action) +
+                         ' - ' + msg + '\n')
         self.term.see("end")
         self.term.config(state=tk.DISABLED)
 
