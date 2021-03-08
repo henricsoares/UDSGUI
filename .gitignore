@@ -3,3 +3,11 @@ __pycache__/
 .mypy_cache/
 python-can.pdf
 logfile.asc
+pythonUDS/
+python interfaces.pptx
+seed1.jpg
+seed2.jpg
+log.trc
+log2.trc
+log3.trc
+logfile.asc

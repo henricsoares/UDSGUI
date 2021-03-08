@@ -3,7 +3,7 @@ from tkinter import messagebox  # noqa: F401
 from uds import Uds  # noqa: F401
 import string  # noqa: F401
 from time import time
-from threading import Thread
+from threading import Thread  # noqa: F401
 import tkinter.scrolledtext as tkst
 from datetime import datetime
 from can.interface import Bus  # noqa: F401
@@ -11,6 +11,7 @@ from udsoncan.connections import PythonIsoTpConnection  # noqa: F401
 from udsoncan.client import Client  # noqa: F401
 import isotp  # noqa: F401
 from udsoncan import Response  # noqa: F401
+import pprint as pp  # noqa: F401
 
 
 class App(tk.Frame):
@@ -68,33 +69,33 @@ class App(tk.Frame):
         self.deviceOptions.config(state='disabled')
         self.sensor = tk.StringVar(window)
         self.sensors = ('SGU', 'BEG')
-        self.sensor.set(self.sensors[0])
+        self.sensor.set(self.sensors[1])
         self.sensorLabel = tk.Label(self.communicationMenu,
                                     text='Sensor:')
         self.sensorOptions = tk.OptionMenu(self.communicationMenu,
                                            self.sensor,
                                            *self.sensors)
+        self.sensorOptions.config(state='disabled')
         # self.sensorOptions.config(state='disabled')
         self.bdLabel = tk.Label(self.communicationMenu, text='Baudrate:')
         self.baudRate = tk.Entry(self.communicationMenu, bd=5, width=6,
                                  justify='center')
         self.baudRate.insert(0, '500000')
         self.baudRate.config(state='disabled')
-
-        self.reqIdLabel.grid(row=2, column=0)
+        '''self.reqIdLabel.grid(row=2, column=0)
         self.reqId.grid(row=2, column=1)
         self.resIdLabel.grid(row=2, column=2)
         self.resId.grid(row=2, column=3)
         self.interfaceLabel.grid(row=1, column=0)
         self.interfaceOptions.grid(row=1, column=1)
         self.deviceLabel.grid(row=1, column=2)
-        self.deviceOptions.grid(row=1, column=3)
+        self.deviceOptions.grid(row=1, column=3)'''
         self.sensorLabel.grid(row=0, column=0)
         self.sensorOptions.grid(row=0, column=1)
         self.bdLabel.grid(row=0, column=2)
         self.baudRate.grid(row=0, column=3)
         # self.communicationMenu.pack(side=tk.TOP)
-        self.communicationMenu.grid(row=1, column=0, pady=5)
+        self.communicationMenu.grid(row=1, column=0, pady=5, padx=5)
 # ------ comm status
         self.commStatus = False
         self.commButton = tk.Button(self.communicationMenu, text="Connect",
@@ -118,18 +119,18 @@ class App(tk.Frame):
 # ------ request menu for BEG
         self.begRequestMenu = tk.Canvas(self.frame, width=600, height=400,
                                         bd=0, highlightthickness=0)
-        self.begServices = {
-                         'Diagnostic Session Control': 0x10,
-                         'ECU Reset': 0x11,
-                         'Comunication Control': 0x28,
-                         'Tester Present': [0x3E, 0x00],
-                         'Read Data': 0x22,
-                         'Write Data': 0x2E,
-                         'Read DTC Information': 0x19,
-                         'Clear Diagnostics Information': 0x14,
-                         'Control DTC Setting': 0x85,
-                         'Security Access': 0x27}
-        self.begDataToRead = {
+        self.begServicesList = [
+                                ['Read Data', b'\x22'],
+                                ['Write Data', b'\x2E'],
+                                ['Diagnostic Session Control', b'\x10'],
+                                ['ECU Reset', b'\x11'],
+                                ['Comunication Control', b'\x28'],
+                                ['Tester Present', b'\x3E\x00'],
+                                ['Read DTC Information', b'\x19'],
+                                ['Clear Diagnostics Information', b'\x14'],
+                                ['Control DTC Setting', b'\x85'],
+                                ['Security Access', b'\x27']]
+        self.begRDBIList = {
             'Read active diagnostic session': b'\x22\xF1\x86',
             'Read system supplier identifier': b'\x22\xF1\x8A',
             'Read ECU manufacturing date': b'\x22\xF1\x8B',
@@ -159,32 +160,60 @@ class App(tk.Frame):
             b'\x22\xFD\x62',
             'Read radar wave emission stop': b'\x22\xFD\x63',
             'Read output coordinate system': b'\x22\xFD\x64'}
-        self.dataToWrite = {
-            'Write enable/disable B messages': 0xFD11,
-            'Write CAN1 baud rate': 0xFD12,
-            'Write CAN1 diagnostics messages IDs': 0xFD14,
-            'Write configure object/filtered object message IDs': 0xFD15,
-            'Write configure single CAN message ID': 0xFD16,
-            'Write configure object/filtered object message prioritization': 0xFD18,  # noqa: E501
-            'Write configure number of objects/filtered objects to be sent': 0xFD19,  # noqa: E501
-            'Configure antenna modulation combinations': 0xFD26,
-            'Configure CAN communication protocol': 0xFD27,
-            'Configure mounting position': 0xFD28,
-            'Configure zone configuration': 0xFD60,
-            'Configure layer': 0xFD61,
-            'Configure enable/disable object/filtered object and/or zone message': 0xFD62,  # noqa: E501
-            'Configure radar wave emission stop': 0xFD63,
-            'Configure output coordinate system': 0xFD64}
-        self.dataOptions = {'Read Data': self.begDataToRead,
-                            'Write Data': self.dataToWrite}
-
-        self.service = tk.StringVar(window)
-        self.service.trace('w', self.updateData)
+        self.begWDBIList = {
+            'Write enable/disable B messages': b'\x2E\xFD\x11',
+            'Write CAN1 baud rate': b'\x2E\xFD\x12',
+            'Write CAN1 diagnostics messages IDs': b'\x2E\xFD\x14',
+            'Write configure object/filtered object message IDs': b'\x2E\xFD\x15',  # noqa: E501
+            'Write configure single CAN message ID': b'\x2E\xFD\x16',
+            'Write configure object/filtered object message prioritization': b'\x2E\xFD\x18',  # noqa: E501
+            'Write configure number of objects/filtered objects to be sent': b'\x2E\xFD\x19',  # noqa: E501
+            'Configure antenna modulation combinations': b'\x2E\xFD\x26',
+            'Configure CAN communication protocol': b'\x2E\xFD\x27',
+            'Configure mounting position': b'\x2E\xFD\x28',
+            'Configure zone configuration': b'\x2E\xFD\x60',
+            'Configure layer': b'\x2E\xFD\x61',
+            'Configure enable/disable object/filtered object and/or zone message': b'\x2E\xFD\x62',  # noqa: E501
+            'Configure radar wave emission stop': b'\x2E\xFD\x63',
+            'Configure output coordinate system': b'\x2E\xFD\x64'}
+        self.begDTWList = {
+            b'\x2E\xFD\x11': {'disable B message': b'\x00',
+                              'enable B message': b'\x01'},
+            b'\x2E\xFD\x12': {'125 kbaud': b'\x01',
+                              '250 kbaud': b'\x02',
+                              '500 kbaud': b'\x03',
+                              '1 Mbaud': b'\x04'},
+            b'\x2E\xFD\x14': {},
+            b'\x2E\xFD\x15': {},
+            b'\x2E\xFD\x16': {},
+            b'\x2E\xFD\x18': {'Processing': b'\x00',
+                              'Distance': b'\x01',
+                              'Velocity': b'\x02',
+                              'RCS': b'\x03',
+                              'Positive angle': b'\x04',
+                              'Negative angle': b'\x05'},
+            b'\x2E\xFD\x19': {},
+            b'\x2E\xFD\x26': {'Tx1 antenna with 208/462 MHz bandwidth':
+                              b'\x01',
+                              'Tx1 antenna with 462 MHz bandwidth': b'\x02',
+                              'Tx1 antenna with 740 MHz bandwidth': b'\x03',
+                              'Tx2 antenna with 462 MHz bandwidth': b'\x04',
+                              'Tx2 antenna with 740 MHz bandwidt': b'\x05'},
+            b'\x2E\xFD\x27': {'Automotive CAN': b'\x00',
+                              'SAE J1939': b'\x02'},
+            b'\x2E\xFD\x28': {},
+            b'\x2E\xFD\x60': {},
+            b'\x2E\xFD\x61': {'Filtered object layer': b'\x01',
+                              'Object layer': b'\x02'},
+            b'\x2E\xFD\x62': {'Messages disabled': b'\x00',
+                              'Messages enabled': b'\x01'},
+            b'\x2E\xFD\x63': {'Radar wave emission enabled': b'\x00',
+                              'Radar wave emission disabled': b'\x01'},
+            b'\x2E\xFD\x64': {'Sensor coordinate system': b'\x00',
+                              'Vehicle coordinate system': b'\x01'}}
+        self.dataOptions = {'Read Data': self.begRDBIList,
+                            'Write Data': self.begWDBIList}
         self.sensor.trace('w', self.updateIDS)
-        self.serviceLabel = tk.Label(self.begRequestMenu, text='SID')
-        self.serviceOptions = tk.OptionMenu(self.begRequestMenu, self.service,
-                                            *self.begServices.keys())
-        # self.serviceOptions.config(state='disabled')
         self.DSCSF = {
                       'Default diagnostic session': 0x01,
                       'Extended diagnostic session': 0x03
@@ -200,32 +229,63 @@ class App(tk.Frame):
             'ECU Reset': self.ECUR,
             'Read DTC Information': self.RDTCI}
         self.begTPS = {
-            'ON - With response': [0x3e, 0x00],
+            'ON': b'\x3E\x00',
             'OFF': ''}
+        self.begDSCO = {
+            'Default': b'\x10\x01',
+            'Extended': b'\x10\x03'}
         self.begRequestMenu = tk.Canvas(self.frame, width=600, height=400,
                                         bd=0, highlightthickness=0)
+        self.sendBtn = tk.Canvas(self.frame, width=600, height=400,
+                                 bd=0, highlightthickness=0)
+        self.begService = tk.IntVar(window)
+        self.begRDBIs = tk.Radiobutton(self.begRequestMenu,
+                                       text="Read Data By Identifier",
+                                       command=self.begServices,
+                                       variable=self.begService, value=False,
+                                       indicatoron=0)
         self.begDID = tk.StringVar(self)
-        self.begDIDLabel = tk.Label(self.begRequestMenu,
-                                    text='Read Data By Identifier: ')
+        self.begDID.trace('w', self.begDIDUpdate)
         self.begDIDOptions = tk.OptionMenu(self.begRequestMenu, self.begDID,
-                                           *self.begDataToRead.keys())
+                                           *self.begRDBIList.keys())
+        self.begDIDOptions.config(width=15)
+        self.begWDBIs = tk.Radiobutton(self.begRequestMenu,
+                                       text="Write Data By Identifier",
+                                       command=self.begServices,
+                                       variable=self.begService, value=True,
+                                       indicatoron=0)
+        self.begDTW = tk.StringVar(self)
+        self.begDTWOptions = tk.OptionMenu(self.begRequestMenu, self.begDTW,
+                                           '')
+        self.begDTWOptions.config(width=15)
         self.begTP = tk.StringVar(self)
         self.begTP.set('OFF')
-        self.begTP.trace('w', self.startTrd)
+        self.begTP.trace('w', lambda *args,
+                         passed='TP': self.startTrd(passed, *args))
         self.begTPLabel = tk.Label(self.begRequestMenu,
                                    text='Tester Present: ')
         self.begTPOptions = tk.OptionMenu(self.begRequestMenu, self.begTP,
                                           *self.begTPS.keys())
-        self.begSend = tk.Button(self.begRequestMenu, text="Send",
+        self.begDSC = tk.StringVar(self)
+        self.begDSC.set('Default')
+        self.begDSC.trace('w', lambda *args,
+                          passed='DSC': self.startTrd(passed, *args))
+        self.begDSCLabel = tk.Label(self.begRequestMenu,
+                                    text='Diagnostic Session: ')
+        self.begDSCOptions = tk.OptionMenu(self.begRequestMenu, self.begDSC,
+                                           *self.begDSCO.keys())
+        self.begSend = tk.Button(self.sendBtn, text="Send",
                                  command=self.sendMsg)
         self.begResponse = tk.Label(self.begRequestMenu,
                                     text='Response: ')
-        self.begDIDLabel.grid(row=1, column=0)
-        self.begDIDOptions.grid(row=1, column=1)
-        self.begSend.grid(row=2, column=0)
-        self.begResponse.grid(row=2, column=1)
-        self.begTPLabel.grid(row=0, column=0)
-        self.begTPOptions.grid(row=0, column=1)
+        self.begRDBIs.grid(row=2, column=0, pady=5)
+        self.begWDBIs.grid(row=2, column=1, pady=5)
+        self.begDIDOptions.grid(row=3, column=0)
+        self.begSend.grid(row=0, column=0)
+        self.begTPLabel.grid(row=1, column=0)
+        self.begTPOptions.grid(row=1, column=1)
+        self.begDSCLabel.grid(row=0, column=0)
+        self.begDSCOptions.grid(row=0, column=1)
         # self.begRequestMenu.pack(side=tk.TOP)
 # ------ request menu for SGU
         self.sguDIDS = {
@@ -346,8 +406,8 @@ class App(tk.Frame):
                 if self.dataIdentifier.get() != '':
                     message = (hex(self.begServices.get(self.service.get(),
                                    '')),
-                               hex(self.begDataToRead.get(self.dataIdentifier.get(),  # noqa: E501
-                                                          '')))
+                               hex(self.begRDBIList.get(self.dataIdentifier.get(),  # noqa: E501
+                                                        '')))
                     if tk.messagebox.askyesno('Confirm', "SID: " + self.service.get() + "\n" + "DID: " + self.dataIdentifier.get()):  # noqa: E501
                         self.response['text'] = 'Request: ' + str(message)
                         # print(message)
@@ -426,29 +486,29 @@ class App(tk.Frame):
             if aux:
                 try:
                     if self.sensor.get() == 'SGU':
-                        tp_addr = isotp.Address(isotp.AddressingMode.Normal_11bits,  # noqa: E501
+                        '''tp_addr = isotp.Address(isotp.AddressingMode.Normal_11bits,  # noqa: E501
                                                 txid=0x757,
                                                 rxid=0x7C1)
                         bus = Bus(bustype='pcan',
                                   channel='PCAN_USBBUS1',
                                   bitrate=500000)
                         stack = isotp.CanStack(bus=bus, address=tp_addr)
-                        self.conn = PythonIsoTpConnection(stack)
+                        self.conn = PythonIsoTpConnection(stack)'''
                         self.sguRequestMenu.grid(row=3, column=0, pady=5)
                     elif self.sensor.get() == 'BEG':
-                        tp_addr = isotp.Address(isotp.AddressingMode.Normal_29bits,  # noqa: E501
+                        '''tp_addr = isotp.Address(isotp.AddressingMode.Normal_29bits,  # noqa: E501
                                                 txid=0x18DA2AF1,
                                                 rxid=0x18DAFA2A)
                         bus = Bus(bustype='pcan',
                                   channel='PCAN_USBBUS1',
                                   bitrate=500000)
                         stack = isotp.CanStack(bus=bus, address=tp_addr)
-                        self.conn = PythonIsoTpConnection(stack)
+                        self.conn = PythonIsoTpConnection(stack)'''
                         self.begRequestMenu.grid(row=3, column=0, pady=5)
+                        self.sendBtn.grid(row=4, column=0, pady=5)
                     self.commStatus = True
                     self.commButton.config(text='Disconnect')
-                    self.requestTitleMenu.grid(row=2, column=0)
-                    self.terminalMenu.grid(row=4, column=0)
+                    self.terminalMenu.grid(row=5, column=0)
                     self.termPrint('connected', 'Info')
                     self.sensorOptions.config(state='disabled')
                 except Exception:
@@ -463,6 +523,7 @@ class App(tk.Frame):
                 self.sguRequestMenu.grid_forget()
                 self.begRequestMenu.grid_forget()
                 self.terminalMenu.grid_forget()
+                self.sendBtn.grid_forget()
                 self.commStatus = False
                 self.sensorOptions.config(state='normal')
             except Exception:
@@ -470,7 +531,23 @@ class App(tk.Frame):
         self.commStatuss.config(text=str(self.commStatus))
 
     def sendMsg(self):
-        with Client(self.conn, request_timeout=1,
+        msg = ''
+        if self.sensor.get() == 'BEG':
+            service = (self.begServicesList[self.begService.get()])
+            if service[0] == 'Read Data' and self.begDID.get() != '':
+                msg = self.begRDBIList.get(self.begDID.get())
+                self.termPrint(msg, 'Request')
+            elif service[0] == 'Write Data' and self.begDID.get() != '' and\
+                    self.begDTW.get() != '':
+                did = self.begWDBIList.get(self.begDID.get())
+                dtw = self.begDTWList.get(did)
+                dtw = dtw.get(self.begDTW.get())
+                msg = did + dtw
+                self.termPrint(msg, 'Request')
+            else:
+                messagebox.showinfo('Error', 'Complete the request')
+
+        '''with Client(self.conn, request_timeout=1,
                     config={'exception_on_unexpected_response':
                             False}) as client:
             if self.sensor.get() == 'SGU':
@@ -488,17 +565,18 @@ class App(tk.Frame):
                     messagebox.showinfo('Error', 'No service selected')
             if self.sensor.get() == 'BEG':
                 if self.begDID.get() != '':
-                    msg = self.begDataToRead.get(self.begDID.get())
+                    msg = self.begRDBIList.get(self.begDID.get())
                     try:
                         client.send(msg)
                         self.termPrint(msg, 'Request')
                         payload = client.wait_frame(timeout=1)
-                        response = Response.from_payload(payload)  # noqa: F841, E501
+                        response = Response.\
+                            from_payload(payload)  # noqa: F841, E501
                         self.termPrint(response, 'Response')
                     except Exception as e:
                         print(e)
                 else:
-                    messagebox.showinfo('Error', 'No service selected')
+                    messagebox.showinfo('Error', 'No service selected')'''
         '''try:
             msg = self.a.send(msg)
             self.termPrint(msg)
@@ -537,8 +615,52 @@ class App(tk.Frame):
         self.term.see("end")
         self.term.config(state=tk.DISABLED)
 
-    def startTrd(self, *args):
-        Thread(target=self.testerPresent, daemon=True).start()
+    def startTrd(self, service, *args):
+        if service == 'TP':
+            # Thread(target=self.testerPresent, daemon=True).start()
+            msg = self.begTPS.get(self.begTP.get())
+            self.termPrint(msg, 'Request')
+        elif service == 'DSC':
+            msg = self.begDSCO.get(self.begDSC.get())
+            self.termPrint(msg, 'Request')
+
+    def begServices(self):
+        service = (self.begServicesList[self.begService.get()])
+        '''print(service[0] + ': ')
+        print(service[1].hex())'''
+        if service[0] == 'Read Data':
+            self.begDTWOptions.grid_forget()
+            options = self.begRDBIList.keys()
+            self.begDID.set('')
+            menu = self.begDIDOptions['menu']
+            menu.delete(0, 'end')
+            for option in options:
+                menu.add_command(label=option,
+                                 command=lambda selected=option:
+                                 self.begDID.set(selected))
+        elif service[0] == 'Write Data':
+            self.begDTWOptions.grid(row=3, column=1)
+            options = self.begWDBIList.keys()
+            self.begDID.set('')
+            menu = self.begDIDOptions['menu']
+            menu.delete(0, 'end')
+            for option in options:
+                menu.add_command(label=option,
+                                 command=lambda selected=option:
+                                 self.begDID.set(selected))
+
+    def begDIDUpdate(self, *args):
+        service = (self.begServicesList[self.begService.get()])
+        if service[0] == 'Write Data':
+            dtw = self.begWDBIList.get(self.begDID.get(), '')
+            options = self.begDTWList.get(dtw, '')
+            self.begDTW.set('')
+            menu = self.begDTWOptions['menu']
+            menu.delete(0, 'end')
+            for option in options:
+                menu.add_command(label=option,
+                                 command=lambda selected=option:
+                                 self.begDTW.set(selected))
 
 
 window = tk.Tk()
