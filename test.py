@@ -11,4 +11,4 @@ read = b'\x22'
 '''service = read + bytes.fromhex(input('service: ')) +\
                     bytes.fromhex(input('service: '))
 print(service, service.hex())'''
-print('1010'.hex())
+# print('1010'.hex())
