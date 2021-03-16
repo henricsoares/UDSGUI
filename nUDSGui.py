@@ -661,6 +661,7 @@ class App(tk.Frame):
                 self.begDTW.set('')
                 menu = self.begDTWOptions['menu']
                 menu.delete(0, 'end')
+
                 for option in options:
                     menu.add_command(label=option,
                                      command=lambda selected=option:
