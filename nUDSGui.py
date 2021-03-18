@@ -214,11 +214,9 @@ class App(tk.Frame):
         self.sensor.trace('w', self.updateIDS)
         self.DSCSF = {
             'Default diagnostic session': 0x01,
-            'Extended diagnostic session': 0x03
-        }
+            'Extended diagnostic session': 0x03}
         self.ECUR = {
-            'Hard Reset': 0x01
-        }
+            'Hard Reset': 0x01}
         self.RDTCI = {
             'reportDTCByStatusMask': 0x02,
             'reportDTCExtDataRecordByDTCNumber': 0x06}
@@ -537,16 +535,25 @@ class App(tk.Frame):
             if service[0] == 'Read Data' and self.begDID.get() != '':
                 msg = self.begRDBIList.get(self.begDID.get())
                 self.termPrint(msg, 'Request')
-            elif service[0] == 'Write Data' and self.begDID.get() != '' and\
-                    self.begDTW.get() != '':
+            elif service[0] == 'Write Data' and self.begDID.get() != '':
                 did = self.begWDBIList.get(self.begDID.get())
-                dtw = self.begDTWList.get(did)
-                dtw = dtw.get(self.begDTW.get())
-                msg = did + dtw
-                self.termPrint(msg, 'Request')
+                if self.begDTW.get() != '':
+                    dtw = self.begDTWList.get(did)
+                    dtw = dtw.get(self.begDTW.get())
+                    msg = did + dtw
+                    self.termPrint(msg, 'Request')
+                elif self.begDataEntry.get != '':
+                    try:
+                        dtw = self.begDataEntry.get()
+                        msg = did + bytes.fromhex(dtw)
+                        self.termPrint(msg, 'Request')
+                    except Exception:
+                        messagebox.showinfo(
+                            'Error', 'Incorrect data provided.')
+                else:
+                    messagebox.showinfo('Error', 'Complete the request')
             else:
                 messagebox.showinfo('Error', 'Complete the request')
-
         '''with Client(self.conn, request_timeout=1,
                     config={'exception_on_unexpected_response':
                             False}) as client:
@@ -656,21 +663,21 @@ class App(tk.Frame):
             dtw = self.begWDBIList.get(self.begDID.get(), '')
             if self.begDTWList.get(dtw, '') != '':
                 self.begDataEntry.grid_forget()
+                self.begDataEntry.delete(0, "end")
                 self.begDTWOptions.grid(row=3, column=1)
                 options = self.begDTWList.get(dtw, '')
                 self.begDTW.set('')
                 menu = self.begDTWOptions['menu']
                 menu.delete(0, 'end')
-
                 for option in options:
                     menu.add_command(label=option,
                                      command=lambda selected=option:
                                      self.begDTW.set(selected))
-                print(dtw.hex())
             elif dtw != '':
                 self.begDTWOptions.grid_forget()
                 self.begDataEntry.grid(row=3, column=1)
-                print('isnt')
+                self.begDataEntry.delete(0, "end")
+                self.begDTW.set('')
 
 
 window = tk.Tk()
