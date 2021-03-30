@@ -13,30 +13,51 @@ from udsoncan import Response  # noqa: F401
 
 
 class App(tk.Frame):
-
     def __init__(self, master):
         tk.Frame.__init__(self, master)
-        self.winfo_toplevel().title("   UDS on Python")
-        # master.iconphoto(False, tk.PhotoImage(file='logo.png'))
+        self.winfo_toplevel().title("   BEG Config Tool")
+        master.iconphoto(False, tk.PhotoImage(file='logo.png'))
         self.frame = tk.Frame(master)
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.conn = None
         self.client = None
         self.tpTime = 0
-        self.tpTimee = 0
 # ------ connection title
         self.connectionTitleMenu = tk.Canvas(self.frame, width=600, height=100,
                                              bd=0, highlightthickness=0)
         self.requestTitleLabel = tk.Label(self.connectionTitleMenu,
-                                          text='Configure the connection',
+                                          text='Connection',
                                           relief=tk.RIDGE,
                                           font=('verdana', 10, 'bold'))
         self.requestTitleLabel.pack(pady=15)
-        # self.connectionTitleMenu.pack(side=tk.TOP)
         self.connectionTitleMenu.grid(row=0, column=0)
 # ------ communication menu
         self.communicationMenu = tk.Canvas(self.frame, width=600, height=100,
                                            bd=0, highlightthickness=0)
+        self.sensor = tk.StringVar(window)
+        self.sensors = ('SGU', 'BEG')
+        self.sensor.set(self.sensors[1])
+        self.sensorLabel = tk.Label(self.communicationMenu,
+                                    text='Sensor:')
+        self.sensorOptions = tk.OptionMenu(self.communicationMenu,
+                                           self.sensor,
+                                           *self.sensors)
+        self.sensorOptions.config(state='disabled')
+        self.confg = tk.StringVar(window)
+        self.confgs = ('Default', 'Custom')
+        self.confg.set(self.confgs[0])
+        self.confgLabel = tk.Label(self.communicationMenu,
+                                   text='Config:')
+        self.confgOptions = tk.OptionMenu(self.communicationMenu,
+                                          self.confg,
+                                          *self.confgs)
+        self.confgOptions.config(state='disabled')
+        self.sensorLabel.grid(row=0, column=0)
+        self.sensorOptions.grid(row=0, column=1)
+        self.confgLabel.grid(row=0, column=2)
+        self.confgOptions.grid(row=0, column=3)
+        self.communicationMenu.grid(row=1, column=0, pady=5, padx=5)
+# ------ setup menu - disabled
         self.reqIdLabel = tk.Label(self.communicationMenu, text='Request ID:')
         self.reqId = tk.Entry(self.communicationMenu, bd=5, width=10,
                               justify='center')
@@ -65,20 +86,10 @@ class App(tk.Frame):
                                            self.device,
                                            self.devices[0])
         self.deviceOptions.config(state='disabled')
-        self.sensor = tk.StringVar(window)
-        self.sensors = ('SGU', 'BEG')
-        self.sensor.set(self.sensors[1])
-        self.sensorLabel = tk.Label(self.communicationMenu,
-                                    text='Sensor:')
-        self.sensorOptions = tk.OptionMenu(self.communicationMenu,
-                                           self.sensor,
-                                           *self.sensors)
-        self.sensorOptions.config(state='disabled')
-        # self.sensorOptions.config(state='disabled')
         self.bdLabel = tk.Label(self.communicationMenu, text='Baudrate:')
-        self.baudRate = tk.Entry(self.communicationMenu, bd=5, width=6,
+        self.baudRate = tk.Entry(self.communicationMenu, bd=5, width=8,
                                  justify='center')
-        self.baudRate.insert(0, '500000')
+        self.baudRate.insert(0, '500')
         self.baudRate.config(state='disabled')
         '''self.reqIdLabel.grid(row=2, column=0)
         self.reqId.grid(row=2, column=1)
@@ -87,24 +98,23 @@ class App(tk.Frame):
         self.interfaceLabel.grid(row=1, column=0)
         self.interfaceOptions.grid(row=1, column=1)
         self.deviceLabel.grid(row=1, column=2)
-        self.deviceOptions.grid(row=1, column=3)'''
-        self.sensorLabel.grid(row=0, column=0)
-        self.sensorOptions.grid(row=0, column=1)
+        self.deviceOptions.grid(row=1, column=3)
         self.bdLabel.grid(row=0, column=2)
-        self.baudRate.grid(row=0, column=3)
-        # self.communicationMenu.pack(side=tk.TOP)
-        self.communicationMenu.grid(row=1, column=0, pady=5, padx=5)
+        self.baudRate.grid(row=0, column=3)'''
 # ------ comm status
         self.commStatus = False
         self.commButton = tk.Button(self.communicationMenu, text="Connect",
-                                    command=self.configComm)
+                                    command=lambda *args,
+                                    passed=self.configComm:
+                                    self.startThread(passed, *args))
+
         self.commLabel = tk.Label(self.communicationMenu,
                                   text='Comm status:')
         self.commStatuss = tk.Label(self.communicationMenu,
                                     text=str(self.commStatus))
-        self.commLabel.grid(row=3, column=2)
-        self.commStatuss.grid(row=3, column=3)
-        self.commButton.grid(row=3, column=1)
+        self.commLabel.grid(row=3, column=0)
+        self.commStatuss.grid(row=3, column=1)
+        self.commButton.grid(row=3, column=3)
 # ------ request title
         self.requestTitleMenu = tk.Canvas(self.frame, width=600, height=100,
                                           bd=0, highlightthickness=0)
@@ -211,7 +221,6 @@ class App(tk.Frame):
             b'\x2E\xFD\x60': ''}
         self.dataOptions = {'Read Data': self.begRDBIList,
                             'Write Data': self.begWDBIList}
-        self.sensor.trace('w', self.updateIDS)
         self.DSCSF = {
             'Default diagnostic session': 0x01,
             'Extended diagnostic session': 0x03}
@@ -230,8 +239,6 @@ class App(tk.Frame):
         self.begDSCO = {
             'Default': b'\x10\x01',
             'Extended': b'\x10\x03'}
-        self.begRequestMenu = tk.Canvas(self.frame, width=600, height=400,
-                                        bd=0, highlightthickness=0)
         self.sendBtn = tk.Canvas(self.frame, width=600, height=400,
                                  bd=0, highlightthickness=0)
         self.begService = tk.IntVar(window)
@@ -256,80 +263,16 @@ class App(tk.Frame):
         self.begDTWOptions.config(width=15)
         self.begDataEntry = tk.Entry(self.begRequestMenu, bd=5, width=15,
                                      justify='center')
-        self.begTP = tk.StringVar(self)
-        self.begTP.set('OFF')
-        self.begTP.trace('w', lambda *args,
-                         passed='TP': self.startTrd(passed, *args))
-        self.begTPLabel = tk.Label(self.begRequestMenu,
-                                   text='Tester Present: ')
-        self.begTPOptions = tk.OptionMenu(self.begRequestMenu, self.begTP,
-                                          *self.begTPS.keys())
-        self.begDSC = tk.StringVar(self)
-        self.begDSC.set('Default')
-        self.begDSC.trace('w', lambda *args,
-                          passed='DSC': self.startTrd(passed, *args))
-        self.begDSCLabel = tk.Label(self.begRequestMenu,
-                                    text='Diagnostic Session: ')
-        self.begDSCOptions = tk.OptionMenu(self.begRequestMenu, self.begDSC,
-                                           *self.begDSCO.keys())
         self.begSend = tk.Button(self.sendBtn, text="Send",
-                                 command=self.sendMsg)
+                                 command=lambda *args,
+                                 passed=self.sendMsg:
+                                 self.startThread(passed, *args))
         self.begResponse = tk.Label(self.begRequestMenu,
                                     text='Response: ')
         self.begRDBIs.grid(row=2, column=0, pady=5)
         self.begWDBIs.grid(row=2, column=1, pady=5)
         self.begDIDOptions.grid(row=3, column=0)
         self.begSend.grid(row=0, column=0)
-        self.begTPLabel.grid(row=1, column=0)
-        self.begTPOptions.grid(row=1, column=1)
-        self.begDSCLabel.grid(row=0, column=0)
-        self.begDSCOptions.grid(row=0, column=1)
-        # self.begRequestMenu.pack(side=tk.TOP)
-# ------ request menu for SGU
-        self.sguDIDS = {
-            'Programming Attempt Counter': b'\x22\xf1\x10',
-            'Boot Software Identification': b'\x22\xf1\x80',
-            'Application Software Identification': b'\x22\xf1\x81',
-            'Active Diagnostic Session': b'\x22\xf1\x86',
-            'ECU Voltage': b'\x22\xf1\x87',
-            'ECU Software Number': b'\x22\xf1\x88',
-            'ECU Manufacturing Date': b'\x22\xf1\x8b',
-            'Serial Number': b'\x22\xf1\x8c',
-            'ECU Hardware Partnumber': b'\x22\xf1\x91',
-            'ECU Hardware Version Information': b'\x22\xf1\x93',
-            'ECU Temperature': b'\x22\xf1\x94',
-            'SDA Horizontal Misalignment Angle': b'\x22\xfc\x01',
-            'SDA Vertical Alignment Angle': b'\x22\xfc\x02',
-            'SDA Status': b'\x22\xfc\x03'}
-        self.sguTPS = {
-            'ON - With response': [0x3e, 0x00],
-            'ON - Without response': [0x3e, 0x80],
-            'OFF': ''}
-        self.sguRequestMenu = tk.Canvas(self.frame, width=600, height=400,
-                                        bd=0, highlightthickness=0)
-        self.sguDID = tk.StringVar(self)
-        self.sguDIDLabel = tk.Label(self.sguRequestMenu,
-                                    text='Read Data By Identifier: ')
-        self.sguDIDOptions = tk.OptionMenu(self.sguRequestMenu, self.sguDID,
-                                           *self.sguDIDS.keys())
-        self.sguTP = tk.StringVar(self)
-        self.sguTP.set('OFF')
-        self.sguTP.trace('w', self.startTrd)
-        self.sguTPLabel = tk.Label(self.sguRequestMenu,
-                                   text='Tester Present: ')
-        self.sguTPOptions = tk.OptionMenu(self.sguRequestMenu, self.sguTP,
-                                          *self.sguTPS.keys())
-        self.sguSend = tk.Button(self.sguRequestMenu, text="Send",
-                                 command=self.sendMsg)
-        self.sguResponse = tk.Label(self.sguRequestMenu,
-                                    text='Response: ')
-        self.sguDIDLabel.grid(row=1, column=0)
-        self.sguDIDOptions.grid(row=1, column=1)
-        self.sguSend.grid(row=2, column=0)
-        self.sguResponse.grid(row=2, column=1)
-        self.sguTPLabel.grid(row=0, column=0)
-        self.sguTPOptions.grid(row=0, column=1)
-        # self.sguRequestMenu.pack(side=tk.TOP)
 # ------ response menu
         self.responseMenu = tk.Canvas(self.frame, width=600, height=100,
                                       bd=0, highlightthickness=0)
@@ -346,190 +289,45 @@ class App(tk.Frame):
         self.term.pack()
 # ------
 
-    def updateData(self, *args):
-        try:
-            if self.service.get() == 'Write Data':
-                self.dataRecord.config(state=tk.NORMAL)
-            else:
-                self.dataRecord.delete(0, tk.END)
-                self.dataRecord.config(state=tk.DISABLED)
-            menu = self.dIdentifierOptions['menu']
-            menu1 = self.sFunctionOptions['menu']
-            menu.delete(0, 'end')
-            menu1.delete(0, 'end')
-            self.dataIdentifier.set('')
-            self.sFunction.set('')
-            if self.service.get() == 'Write Data' or self.service.get() == 'Read Data':  # noqa: E501
-                didOptions = (self.dataOptions.get(self.service.get(), '')).keys()  # noqa: E501
-                for option in didOptions:
-                    menu.add_command(label=option, command=lambda selected=option: self.dataIdentifier.set(selected))  # noqa: E501
-            elif self.service.get() == 'Diagnostic Session Control' or self.service.get() == 'ECU Reset' or self.service.get() == 'Read DTC Information':   # noqa: E501
-                sfOptions = (self.sfOptions.get(self.service.get(), '')).keys()
-                for option in sfOptions:
-                    menu1.add_command(label=option, command=lambda selected=option: self.sFunction.set(selected))  # noqa: E501'''
-        except Exception:
-            self.dataIdentifier.set('')
-            menu = self.dIdentifierOptions['menu']
-            menu.delete(0, 'end')
-            self.sFunction.set('')
-            menu1 = self.sFunctionOptions['menu']
-            menu1.delete(0, 'end')
-
-    def updateIDS(self, *args):
-        if self.sensor.get() == 'SGU':
-            self.reqId.config(state='normal')
-            self.resId.config(state='normal')
-            self.reqId.delete(0, 'end')
-            self.reqId.insert(0, '757')
-            self.resId.delete(0, 'end')
-            self.resId.insert(0, '7C1')
-            self.reqId.config(state='disabled')
-            self.resId.config(state='disabled')
-        elif self.sensor.get() == 'BEG':
-            self.resId.config(state='normal')
-            self.reqId.config(state='normal')
-            self.reqId.delete(0, 'end')
-            self.reqId.insert(0, '18DA2AF1')
-            self.resId.delete(0, 'end')
-            self.resId.insert(0, '18DAFA2A')
-            self.resId.config(state='disabled')
-            self.reqId.config(state='disabled')
-
-    def sendRequest(self):
-        if self.service.get() == '':
-            messagebox.showinfo("Error",
-                                'Select a SID')
-        else:
-            if self.service.get() == 'Read Data':
-                if self.dataIdentifier.get() != '':
-                    message = (hex(self.begServices.get(self.service.get(),
-                                   '')),
-                               hex(self.begRDBIList.get(self.dataIdentifier.get(),  # noqa: E501
-                                                        '')))
-                    if tk.messagebox.askyesno('Confirm', "SID: " + self.service.get() + "\n" + "DID: " + self.dataIdentifier.get()):  # noqa: E501
-                        self.response['text'] = 'Request: ' + str(message)
-                        # print(message)
-                else:
-                    messagebox.showinfo("Error",
-                                        'DID is missing')
-
-            elif self.service.get() == 'Write Data':
-                if self.dataRecord.get() != '' and self.dataIdentifier.get() != '':  # noqa: E501
-                    message = (hex(self.begServices.get(self.service.get(),
-                               '')),
-                               hex(self.dataToWrite.get(self.dataIdentifier.get(),  # noqa: E501
-                                                        '')),
-                               self.dataRecord.get())
-
-                    if tk.messagebox.askyesno('Confirm the content',
-                                              "SID: " + self.service.get() + "\n" + "DID: " + self.dataIdentifier.get() + "\n" + "Data: " + self.dataRecord.get()):  # noqa: E501
-                        self.response['text'] = 'Request: ' + str(message)
-                        # print(message)
-                elif self.dataIdentifier.get() == '':
-                    messagebox.showinfo("Error",
-                                        'DID is missing')
-                elif self.dataRecord.get() == '':
-                    messagebox.showinfo("Error",
-                                        'Data Record is missing')
-            elif self.service.get() == 'Diagnostic Session Control' or self.service.get() == 'ECU Reset' or self.service.get() == 'Read DTC Information':   # noqa: E501
-                message = (hex(self.begServices.get(self.service.get(), '')),
-                           hex((self.sfOptions.get(self.service.get())).get(self.sFunction.get())))  # noqa: E501
-                if tk.messagebox.askyesno('Confirm the content',
-                                          "SID: " + self.service.get() + "\n" + "SubFn: " + self.sFunction.get()):  # noqa: E501
-                    self.response['text'] = 'Request: ' + str(message)
-                # print(hex((self.sfOptions.get(self.service.get())).get(self.sFunction.get())))  # noqa: E501
-            else:
-                if tk.messagebox.askyesno('Confirm the content',
-                                          self.service.get()):
-                    # self.response['text'] = 'Request: ' + str(message)
-                    msg = self.a.send(self.begServices.get(self.service.get()))
-                    '''if msg[0] == 0x7e:
-                        msg[1] = 'Positive response '
-                    else:
-                        msg[1] = 'Negative response '''
-                    self.response['text'] = 'Response: ' + str(msg)
-
     def configComm(self):
         if not self.commStatus:
-            aux = True
-            msg = ''
-            if self.sensor.get() != 'SGU' and self.sensor.get() != 'BEG':
-                '''reqId, resId = self.reqId.get(), self.resId.get()
-                interface, device = self.interface.get(), self.device.get()
-                baudrate = self.baudRate.get()
-                if not all(c in string.hexdigits for c in reqId) or\
-                   reqId == '':
-                    msg = 'Invalid redId'
-                    aux = False
-                else:
-                    reqId = int(reqId, 16)
-                if not all(c in string.hexdigits for c in resId) or\
-                   resId == '':
-                    msg = 'Invalid resId'
-                    aux = False
-                else:
-                    resId = int(resId, 16)
-                if interface not in self.interfaces or interface == '':
-                    msg = 'Invalid interface'
-                    aux = False
-                if device not in self.devices or device == '':
-                    msg = 'Invalid device'
-                    aux = False
-                if not all(c in string.digits for c in baudrate) or\
-                   baudrate == '':
-                    msg = 'Invalid baudrate'
-                    aux = False'''
-                aux = False
-                msg = "Device not supported."
-            if aux:
+            if self.sensor.get() != 'BEG':
+                messagebox.showinfo('Error', 'Device not supported.')
+            else:
                 try:
-                    if self.sensor.get() == 'SGU':
-                        '''tp_addr = isotp.Address(isotp.AddressingMode.Normal_11bits,  # noqa: E501
-                                                txid=0x757,
-                                                rxid=0x7C1)
-                        bus = Bus(bustype='pcan',
-                                  channel='PCAN_USBBUS1',
-                                  bitrate=500000)
-                        stack = isotp.CanStack(bus=bus, address=tp_addr)
-                        self.conn = PythonIsoTpConnection(stack)'''
-                        self.sguRequestMenu.grid(row=3, column=0, pady=5)
-                    elif self.sensor.get() == 'BEG':
-                        '''tp_addr = isotp.Address(isotp.AddressingMode.Normal_29bits,  # noqa: E501
-                                                txid=0x18DA2AF1,
-                                                rxid=0x18DAFA2A)
-                        bus = Bus(bustype='pcan',
-                                  channel='PCAN_USBBUS1',
-                                  bitrate=500000)
-                        stack = isotp.CanStack(bus=bus, address=tp_addr)
-                        self.conn = PythonIsoTpConnection(stack)'''
-                        self.begRequestMenu.grid(row=3, column=0, pady=5)
-                        self.sendBtn.grid(row=4, column=0, pady=5)
+                    '''tp_addr = isotp.Address(isotp.AddressingMode.Normal_29bits,  # noqa: E501
+                                            txid=0x18DA2AF1,
+                                            rxid=0x18DAFA2A)
+                    bus = Bus(bustype='pcan',
+                              channel='PCAN_USBBUS1',
+                              bitrate=500000)
+                    stack = isotp.CanStack(bus=bus, address=tp_addr)
+                    self.conn = PythonIsoTpConnection(stack)'''
+                    self.requestTitleMenu.grid(row=3, column=0, pady=5)
+                    self.begRequestMenu.grid(row=4, column=0, pady=5)
+                    self.sendBtn.grid(row=5, column=0, pady=5)
                     self.commStatus = True
                     self.commButton.config(text='Disconnect')
-                    self.terminalMenu.grid(row=5, column=0)
+                    self.terminalMenu.grid(row=6, column=0)
                     self.termPrint('connected', 'Info')
                     self.sensorOptions.config(state='disabled')
                 except Exception:
                     messagebox.showinfo('Error', 'There is no connection')
                     self.commStatus = False
-            else:
-                messagebox.showinfo('Error', msg)
         else:
             try:
                 self.commButton.config(text='Connect')
                 self.requestTitleMenu.grid_forget()
-                self.sguRequestMenu.grid_forget()
                 self.begRequestMenu.grid_forget()
                 self.terminalMenu.grid_forget()
                 self.sendBtn.grid_forget()
                 self.commStatus = False
-                self.sensorOptions.config(state='normal')
             except Exception:
                 messagebox.showinfo('Error', 'Unable to disconnect')
         self.commStatuss.config(text=str(self.commStatus))
 
     def sendMsg(self):
-        msg = ''
+        msg: str
         if self.sensor.get() == 'BEG':
             service = (self.begServicesList[self.begService.get()])
             if service[0] == 'Read Data' and self.begDID.get() != '':
@@ -556,62 +354,75 @@ class App(tk.Frame):
                 messagebox.showinfo('Error', 'Complete the request')
         '''with Client(self.conn, request_timeout=1,
                     config={'exception_on_unexpected_response':
-                            False}) as client:
-            if self.sensor.get() == 'SGU':
-                if self.sguDID.get() != '':
-                    msg = self.sguDIDS.get(self.sguDID.get())
-                    try:
-                        client.send(msg)
-                        self.termPrint(msg, 'Request')
-                        payload = client.wait_frame(timeout=1)
-                        response = Response.from_payload(payload)  # noqa: F841
-                        self.termPrint(response, 'Response')
-                    except Exception as e:
-                        print(e)
-                else:
-                    messagebox.showinfo('Error', 'No service selected')
+                            False}) as client:  # noqa: F841
+
             if self.sensor.get() == 'BEG':
                 if self.begDID.get() != '':
                     msg = self.begRDBIList.get(self.begDID.get())
                     try:
-                        client.send(msg)
+                        self.conn.send(msg)
                         self.termPrint(msg, 'Request')
-                        payload = client.wait_frame(timeout=1)
+                        payload = self.conn.wait_frame(timeout=1)
                         response = Response.\
                             from_payload(payload)  # noqa: F841, E501
-                        self.termPrint(response, 'Response')
+                        self.termPrint(response.data, 'Response')
                     except Exception as e:
                         print(e)
                 else:
                     messagebox.showinfo('Error', 'No service selected')'''
-        '''try:
-            msg = self.a.send(msg)
-            self.termPrint(msg)
-        except Exception:
-            self.termPrint('No response')'''
 
     def testerPresent(self, *args):
-        self.tpTimee += 4
-        while self.commStatus and self.sguTP.get() == 'ON - With response' or self.sguTP.get() == 'ON - Without response':  # noqa: E501
-            pass
-            '''if self.tpTimee - self.tpTime >= 4:
-                self.tpTime, self.tpTimee = time(), time()
-                msg = self.sguTPS.get(self.sguTP.get())
-                self.termPrint(msg)
-                try:
-                    msg = self.a.send(self.sguTPS.get(self.sguTP.get()))
-                    self.termPrint(msg)
-                except Exception:
-                    self.termPrint('No response')
-            else:
-                self.tpTimee = time()'''
+        try:
+            self.termPrint(b'\x10\x03', 'Request')
+            '''with Client(self.conn, request_timeout=1,
+                        config={'exception_on_unexpected_response':
+                                False}) as client:  # noqa: F841
+                self.conn.send(b'\x10\x03)
+                self.termPrint(msg, 'Request')
+                payload = self.conn.wait_frame(timeout=1)
+                response = Response.\
+                    from_payload(payload)  # noqa: F841, E501
+                self.termPrint(response.data, 'Response')
+                self.conn.send(b'\x27\x63')
+                self.termPrint(b'\x27\x63', 'Request')
+                payload = conn.wait_frame(timeout=1)
+                response = Response.from_payload(payload)
+                self.termPrint(response.data, 'Response')
+                seed = (response.data.hex()[2:])
+                sA = sec.securityAlgo(seed, 'series')
+                sleep(.1)
+                key = b'\x27\x64' + sA.calculatedKey
+                conn.send(key)
+                self.termPrint(key, 'Request')
+                payload = conn.wait_frame(timeout=1)
+                response = Response.from_payload(payload)
+                self.termPrint(response.data, 'Response')'''
+            self.tpTime += 4
+            service = (self.begServicesList[self.begService.get()])[0]
+            while self.commStatus and service == 'Write Data':
+                if time() - self.tpTime >= 4:
+                    self.tpTime = time()
+                    self.termPrint(b'\x3E\x00', 'Request')
+                    '''with Client(self.conn, request_timeout=1,
+                                config={'exception_on_unexpected_response':
+                                        False}) as client:  # noqa: F841
+                        msg = b'\x3E\x00'
+                        self.conn.send(msg)
+                        self.termPrint(msg, 'Request')
+                        payload = self.conn.wait_frame(timeout=1)
+                        response = Response.\
+                            from_payload(payload)  # noqa: F841, E501
+                        self.termPrint(response.data, 'Response')'''
+                service = (self.begServicesList[self.begService.get()])[0]
+            self.begService.set(0)
+        except Exception as e:
+            messagebox.showinfo('Function unavailable', e)
+            self.begService.set(0)
+
+    def startThread(self, func):
+        Thread(target=func).start()
 
     def termPrint(self, msg, action):
-        '''if type(info) is list:
-            _msg = []
-            for inf in info:
-                _msg.append(hex(inf))
-            info = str(_msg)'''
         now = datetime.now()
         now = now.strftime('%m/%d/%Y, %H:%M:%S')
         if action == 'Request' or action == 'Response':
@@ -623,19 +434,8 @@ class App(tk.Frame):
         self.term.see("end")
         self.term.config(state=tk.DISABLED)
 
-    def startTrd(self, service, *args):
-        if service == 'TP':
-            # Thread(target=self.testerPresent, daemon=True).start()
-            msg = self.begTPS.get(self.begTP.get())
-            self.termPrint(msg, 'Request')
-        elif service == 'DSC':
-            msg = self.begDSCO.get(self.begDSC.get())
-            self.termPrint(msg, 'Request')
-
     def begServices(self):
         service = (self.begServicesList[self.begService.get()])
-        '''print(service[0] + ': ')
-        print(service[1].hex())'''
         if service[0] == 'Read Data':
             self.begDTWOptions.grid_forget()
             self.begDataEntry.grid_forget()
@@ -648,6 +448,7 @@ class App(tk.Frame):
                                  command=lambda selected=option:
                                  self.begDID.set(selected))
         elif service[0] == 'Write Data':
+            Thread(target=self.testerPresent, daemon=True).start()
             options = self.begWDBIList.keys()
             self.begDID.set('')
             menu = self.begDIDOptions['menu']
