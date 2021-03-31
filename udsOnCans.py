@@ -29,6 +29,12 @@ with Client(conn, request_timeout=1,
         conn.send(b'\x27\x64' + sA.calculatedKey)
         payload = conn.wait_frame(timeout=1)
         response = Response.from_payload(payload)
+        response = str(response).split('<')
+        response = (response[1].split('-'))[0]
+        print(response)
+        conn.send(b'\x2e\xfd\x28\x7a\x98\x33\x88\xb7\x98\xb7\x98\xb7\x98\xb7\x98\xb7\x98\xb7\x98\x01\xf4')  # noqa: E501
+        payload = conn.wait_frame(timeout=1)
+        response = Response.from_payload(payload)
         print(response)
 
     except Exception as e:

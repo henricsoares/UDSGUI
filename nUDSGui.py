@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox  # noqa: F401
 import string  # noqa: F401
-from time import time  # noqa: F401
+from time import time, sleep  # noqa: F401
 from threading import Thread  # noqa: F401
 import tkinter.scrolledtext as tkst
 from datetime import datetime
@@ -10,6 +10,7 @@ from udsoncan.connections import PythonIsoTpConnection  # noqa: F401
 from udsoncan.client import Client  # noqa: F401
 import isotp  # noqa: F401
 from udsoncan import Response  # noqa: F401
+import securityAlgo as sec
 
 
 class App(tk.Frame):
@@ -22,6 +23,12 @@ class App(tk.Frame):
         self.conn = None
         self.client = None
         self.tpTime = 0
+        self.mpMessage = [  # mounting position message info
+            [.0002, -3.2768, -3.2768, 3.2766],  # Sensor horizont. angle
+            [.0002, -1.6384, -1.6384, 1.6382],  # Sensor verical. angle
+            [.001, -32, -32, 31.999],  # Vehicle coordinate system x-y-z, Sensor x-y-z-coordinate  # noqa: E501
+            [.01, 0, .01, 10.23]  # Ground
+        ]
 # ------ connection title
         self.connectionTitleMenu = tk.Canvas(self.frame, width=600, height=100,
                                              bd=0, highlightthickness=0)
@@ -295,21 +302,21 @@ class App(tk.Frame):
                 messagebox.showinfo('Error', 'Device not supported.')
             else:
                 try:
-                    '''tp_addr = isotp.Address(isotp.AddressingMode.Normal_29bits,  # noqa: E501
+                    tp_addr = isotp.Address(isotp.AddressingMode.Normal_29bits,  # noqa: E501
                                             txid=0x18DA2AF1,
                                             rxid=0x18DAFA2A)
                     bus = Bus(bustype='pcan',
                               channel='PCAN_USBBUS1',
                               bitrate=500000)
                     stack = isotp.CanStack(bus=bus, address=tp_addr)
-                    self.conn = PythonIsoTpConnection(stack)'''
+                    self.conn = PythonIsoTpConnection(stack)
                     self.requestTitleMenu.grid(row=3, column=0, pady=5)
                     self.begRequestMenu.grid(row=4, column=0, pady=5)
                     self.sendBtn.grid(row=5, column=0, pady=5)
                     self.commStatus = True
                     self.commButton.config(text='Disconnect')
                     self.terminalMenu.grid(row=6, column=0)
-                    self.termPrint('connected', 'Info')
+                    self.termPrint('Info - connected')
                     self.sensorOptions.config(state='disabled')
                 except Exception:
                     messagebox.showinfo('Error', 'There is no connection')
@@ -332,19 +339,19 @@ class App(tk.Frame):
             service = (self.begServicesList[self.begService.get()])
             if service[0] == 'Read Data' and self.begDID.get() != '':
                 msg = self.begRDBIList.get(self.begDID.get())
-                self.termPrint(msg, 'Request')
+                self.termPrint('Request', msg)
             elif service[0] == 'Write Data' and self.begDID.get() != '':
                 did = self.begWDBIList.get(self.begDID.get())
                 if self.begDTW.get() != '':
                     dtw = self.begDTWList.get(did)
                     dtw = dtw.get(self.begDTW.get())
                     msg = did + dtw
-                    self.termPrint(msg, 'Request')
+                    self.termPrint('Request', msg)
                 elif self.begDataEntry.get != '':
                     try:
                         dtw = self.begDataEntry.get()
                         msg = did + bytes.fromhex(dtw)
-                        self.termPrint(msg, 'Request')
+                        self.termPrint('Request', msg)
                     except Exception:
                         messagebox.showinfo(
                             'Error', 'Incorrect data provided.')
@@ -352,7 +359,7 @@ class App(tk.Frame):
                     messagebox.showinfo('Error', 'Complete the request')
             else:
                 messagebox.showinfo('Error', 'Complete the request')
-        '''with Client(self.conn, request_timeout=1,
+        with Client(self.conn, request_timeout=1,
                     config={'exception_on_unexpected_response':
                             False}) as client:  # noqa: F841
 
@@ -361,58 +368,60 @@ class App(tk.Frame):
                     msg = self.begRDBIList.get(self.begDID.get())
                     try:
                         self.conn.send(msg)
-                        self.termPrint(msg, 'Request')
+                        self.termPrint('Request', msg)
                         payload = self.conn.wait_frame(timeout=1)
                         response = Response.\
                             from_payload(payload)  # noqa: F841, E501
-                        self.termPrint(response.data, 'Response')
+                        self.termPrint('Response', response.data)
                     except Exception as e:
                         print(e)
                 else:
-                    messagebox.showinfo('Error', 'No service selected')'''
+                    messagebox.showinfo('Error', 'No service selected')
 
     def testerPresent(self, *args):
         try:
-            self.termPrint(b'\x10\x03', 'Request')
-            '''with Client(self.conn, request_timeout=1,
+            with Client(self.conn, request_timeout=1,
                         config={'exception_on_unexpected_response':
                                 False}) as client:  # noqa: F841
-                self.conn.send(b'\x10\x03)
-                self.termPrint(msg, 'Request')
+                self.conn.send(b'\x10\x03')
+                self.termPrint('Request', b'\x10\x03')
                 payload = self.conn.wait_frame(timeout=1)
                 response = Response.\
                     from_payload(payload)  # noqa: F841, E501
-                self.termPrint(response.data, 'Response')
+                response = str(response).split('<')
+                response = (response[1].split('-'))[0]
+                self.termPrint(response)
                 self.conn.send(b'\x27\x63')
-                self.termPrint(b'\x27\x63', 'Request')
-                payload = conn.wait_frame(timeout=1)
+                self.termPrint('Request', b'\x27\x63')
+                payload = self.conn.wait_frame(timeout=1)
                 response = Response.from_payload(payload)
-                self.termPrint(response.data, 'Response')
                 seed = (response.data.hex()[2:])
                 sA = sec.securityAlgo(seed, 'series')
                 sleep(.1)
                 key = b'\x27\x64' + sA.calculatedKey
-                conn.send(key)
-                self.termPrint(key, 'Request')
-                payload = conn.wait_frame(timeout=1)
+                response = str(response).split('<')
+                response = (response[1].split('-'))[0]
+                self.conn.send(key)
+                payload = self.conn.wait_frame(timeout=1)
                 response = Response.from_payload(payload)
-                self.termPrint(response.data, 'Response')'''
+                response = str(response).split('<')
+                response = (response[1].split('-'))[0]
+                self.termPrint(response)
             self.tpTime += 4
             service = (self.begServicesList[self.begService.get()])[0]
             while self.commStatus and service == 'Write Data':
                 if time() - self.tpTime >= 4:
                     self.tpTime = time()
-                    self.termPrint(b'\x3E\x00', 'Request')
-                    '''with Client(self.conn, request_timeout=1,
+                    with Client(self.conn, request_timeout=1,
                                 config={'exception_on_unexpected_response':
                                         False}) as client:  # noqa: F841
                         msg = b'\x3E\x00'
                         self.conn.send(msg)
-                        self.termPrint(msg, 'Request')
-                        payload = self.conn.wait_frame(timeout=1)
+                        self.termPrint('Request', msg)
+                        '''payload = self.conn.wait_frame(timeout=1)
                         response = Response.\
                             from_payload(payload)  # noqa: F841, E501
-                        self.termPrint(response.data, 'Response')'''
+                        self.termPrint('Response', response.data)'''
                 service = (self.begServicesList[self.begService.get()])[0]
             self.begService.set(0)
         except Exception as e:
@@ -422,15 +431,18 @@ class App(tk.Frame):
     def startThread(self, func):
         Thread(target=func).start()
 
-    def termPrint(self, msg, action):
+    def termPrint(self, action, msg=''):
         now = datetime.now()
         now = now.strftime('%m/%d/%Y, %H:%M:%S')
+        self.term.config(state=tk.NORMAL)
         if action == 'Request' or action == 'Response':
             msg = msg.hex()
-        self.term.config(state=tk.NORMAL)
-        self.term.insert('insert',
-                         now + ': ' + '\n' + (action) +
-                         ' - ' + msg + '\n')
+            self.term.insert('insert',
+                             now + ': ' + '\n' + (action) +
+                             ' - ' + msg + '\n')
+        else:
+            self.term.insert('insert',
+                             now + ': ' + '\n' + (action) + '\n')
         self.term.see("end")
         self.term.config(state=tk.DISABLED)
 
@@ -462,6 +474,11 @@ class App(tk.Frame):
         service = (self.begServicesList[self.begService.get()])
         if service[0] == 'Write Data':
             dtw = self.begWDBIList.get(self.begDID.get(), '')
+            begdid = (self.begDID.get())
+            if begdid == 'Configure mounting position':
+                self.mountingWindow()
+            else:
+                self.begDataEntry.config(state='normal')
             if self.begDTWList.get(dtw, '') != '':
                 self.begDataEntry.grid_forget()
                 self.begDataEntry.delete(0, "end")
@@ -479,6 +496,100 @@ class App(tk.Frame):
                 self.begDataEntry.grid(row=3, column=1)
                 self.begDataEntry.delete(0, "end")
                 self.begDTW.set('')
+
+    def mountingWindow(self):
+        self.newWindow = tk.Toplevel(self.master)
+
+        self.newWindow.iconphoto(False, tk.PhotoImage(file='logo.png'))
+        self.newWindow.title('Mounting Position')
+
+        title = tk.Canvas(self.newWindow)
+        tk.Label(title,
+                 text="Mounting Position",
+                 relief=tk.RIDGE,
+                 font=('verdana', 10, 'bold')).pack(pady=15)
+        title.grid(row=0, column=0)
+        entrys = tk.Canvas(self.newWindow)
+
+        sensorHAngle = tk.Label(entrys, text='Sensor horizont. angle:')
+        self.shaId = tk.Entry(entrys, bd=5, width=10,
+                              justify='center')
+        sensorVAngle = tk.Label(entrys, text='Sensor vertical angle:')
+        self.svaId = tk.Entry(entrys, bd=5, width=10,
+                              justify='center')
+
+        vehicleCSX = tk.Label(entrys, text='Vehicle coordinate system x:')
+        self.vcsxId = tk.Entry(entrys, bd=5, width=10,
+                               justify='center')
+        vehicleCSY = tk.Label(entrys, text='Vehicle coordinate system y:')
+        self.vcsyId = tk.Entry(entrys, bd=5, width=10,
+                               justify='center')
+        vehicleCSZ = tk.Label(entrys, text='Vehicle coordinate system z:')
+        self.vcszId = tk.Entry(entrys, bd=5, width=10,
+                               justify='center')
+
+        sensorXC = tk.Label(entrys, text='Sensor x-coordinate:')
+        self.sxcId = tk.Entry(entrys, bd=5, width=10,
+                              justify='center')
+        sensorYC = tk.Label(entrys, text='Sensor y-coordinate:')
+        self.sycId = tk.Entry(entrys, bd=5, width=10,
+                              justify='center')
+        sensorZC = tk.Label(entrys, text='Sensor z-coordinate:')
+        self.szcId = tk.Entry(entrys, bd=5, width=10,
+                              justify='center')
+
+        ground = tk.Label(entrys, text='Ground:')
+        self.gId = tk.Entry(entrys, bd=5, width=10,
+                            justify='center')
+
+        sensorHAngle.grid(row=0, column=0, pady=1, padx=1)
+        self.shaId.grid(row=0, column=1)
+        sensorVAngle.grid(row=1, column=0, pady=1, padx=1)
+        self.svaId.grid(row=1, column=1)
+
+        vehicleCSX.grid(row=2, column=0, pady=1, padx=1), self.vcsxId.grid(row=2, column=1)  # noqa: E501
+        vehicleCSY.grid(row=3, column=0, pady=1, padx=1), self.vcsyId.grid(row=3, column=1)  # noqa: E501
+        vehicleCSZ.grid(row=4, column=0, pady=1, padx=1), self.vcszId.grid(row=4, column=1)  # noqa: E501
+
+        sensorXC.grid(row=5, column=0, pady=1, padx=1), self.sxcId.grid(row=5, column=1)  # noqa: E501
+        sensorYC.grid(row=6, column=0, pady=1, padx=1), self.sycId.grid(row=6, column=1)  # noqa: E501
+        sensorZC.grid(row=7, column=0, pady=1, padx=1), self.szcId.grid(row=7, column=1)  # noqa: E501
+
+        ground.grid(row=8, column=0, pady=1, padx=1), self.gId.grid(row=8, column=1)  # noqa: E501
+
+        entrys.grid(row=1, column=0)
+
+        done = tk.Canvas(self.newWindow)
+
+        tk.Button(done, text="Done", command=self.getValues).pack()
+        done.grid(row=2, column=0, pady=15)
+
+    def getValues(self):
+        sha, sva = float(self.shaId.get()), float(self.svaId.get())
+        vcsx, vcsy, vcsz = float(self.vcsxId.get()), float(self.vcsyId.get()), float(self.vcszId.get())   # noqa: E501
+        sxc, syc, szc = float(self.sxcId.get()), float(self.sycId.get()), float(self.szcId.get())  # noqa: E501
+        g = float(self.gId.get())
+        sha, sva = self.calcData(sha, self.mpMessage[0]), self.calcData(sva, self.mpMessage[1])    # noqa: E501
+        vcsx, vcsy, vcsz = self.calcData(vcsx, self.mpMessage[2]), self.calcData(vcsy, self.mpMessage[2]), self.calcData(vcsz, self.mpMessage[2])  # noqa: E501
+        sxc, syc, szc = self.calcData(sxc, self.mpMessage[2]), self.calcData(syc, self.mpMessage[2]), self.calcData(szc, self.mpMessage[2])  # noqa: E501
+        g = self.calcData(g, self.mpMessage[3])
+        if (sha != 0 and sva != 0 and vcsx != 0 and vcsy != 0 and vcsz != 0
+           and sxc != 0 and syc != 0 and szc != 0 and g != 0):
+            minfo = (sha + sva + vcsx + vcsy + vcsz + sxc + syc + szc + g).hex()    # noqa: E501
+            self.begDataEntry.delete(0, 'end')
+            self.begDataEntry.insert(0, minfo)
+            self.newWindow.destroy()
+
+        else:
+            messagebox.showinfo('Error', 'Invalid value(s).')
+
+    def calcData(self, data, info):
+        if info[2] <= data <= info[3]:
+            data = (int((data - (-info[1])) / info[0]))
+            data = data.to_bytes(2, 'big', signed=True)
+        else:
+            data = 0
+        return data
 
 
 window = tk.Tk()

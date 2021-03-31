@@ -76,6 +76,6 @@ class securityAlgo:
               'Calculated Key: ' + str(self.calculatedKey.hex()))
 
 
-seed = ('fded5e5b')
+'''seed = ('fded5e5b')
 sA = securityAlgo(seed, 'series')
-print(sA.calculatedKey.hex())
+print(sA.calculatedKey.hex())'''

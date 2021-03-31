@@ -12,7 +12,6 @@ read = b'\x22' '''
                     bytes.fromhex(input('service: '))
 print(service, service.hex())'''
 # print('1010'.hex())
-lista = []
-for i in range(31, -1, -1):
-    lista.append(i)
-print(lista[9], lista[26], lista[11], lista[31], lista[23], lista[1], lista[16])
+chave = 'fa98f388a628a2409e5892a096889a7000c8'
+msg = bytes.fromhex(chave)
+print(msg.hex() == chave)
