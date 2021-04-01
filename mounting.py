@@ -1,5 +1,6 @@
 import tkinter as tk
 
+
 mpMessage = [
     [.0002, -3.2768, -3.2768, 3.2766],  # Sensor horizont. angle
     [.0002, -1.6384, -1.6384, 1.6382],  # Sensor verical. angle
@@ -10,7 +11,7 @@ mpMessage = [
 master = tk.Tk()
 newWindow = tk.Toplevel(master)
 
-newWindow.iconphoto(False, tk.PhotoImage(file='logo.png'))
+# newWindow.iconphoto(False, tk.PhotoImage(file='logo.png'))
 newWindow.title('Mounting Position')
 
 title = tk.Canvas(newWindow)
@@ -74,13 +75,23 @@ done = tk.Canvas(newWindow)
 
 def calcData(data, info):
     if info[2] <= data <= info[3]:
-        data = (int((data - info[1]) / info[0]))
-        data = data.to_bytes(2, 'big', signed=True)
+        data += 0.0001
+        data = int((data - info[1]) / info[0])
+        print(data)
+        data = data.to_bytes(3, 'big', signed=True)
+        data = bytearray(data)
+        data = data[1:]
         print('ok')
     else:
         data = 0
         print("Out of range")
     return data
+
+
+def reverse(data, info):
+    a = int(data.hex(), 16)*info[0]
+    a = round((a + info[1]), 4)
+    return a
 
 
 def getValues():
@@ -100,4 +111,8 @@ doneBtn = tk.Button(done, text="Done",
                     command=getValues).pack()
 done.grid(row=2, column=0, pady=15)
 
-master.mainloop()
+# master.mainloop()
+a = calcData(3.2766, mpMessage[0])
+print(a.hex())
+a = reverse(a, mpMessage[0])
+print(a)

@@ -574,7 +574,7 @@ class App(tk.Frame):
         sxc, syc, szc = self.calcData(sxc, self.mpMessage[2]), self.calcData(syc, self.mpMessage[2]), self.calcData(szc, self.mpMessage[2])  # noqa: E501
         g = self.calcData(g, self.mpMessage[3])
         if (sha != 0 and sva != 0 and vcsx != 0 and vcsy != 0 and vcsz != 0
-           and sxc != 0 and syc != 0 and szc != 0 and g != 0):
+                and sxc != 0 and syc != 0 and szc != 0 and g != 0):
             minfo = (sha + sva + vcsx + vcsy + vcsz + sxc + syc + szc + g).hex()    # noqa: E501
             self.begDataEntry.delete(0, 'end')
             self.begDataEntry.insert(0, minfo)
@@ -585,8 +585,11 @@ class App(tk.Frame):
 
     def calcData(self, data, info):
         if info[2] <= data <= info[3]:
+            data += 0.0001
             data = (int((data - (-info[1])) / info[0]))
-            data = data.to_bytes(2, 'big', signed=True)
+            data = data.to_bytes(3, 'big', signed=True)
+            data = bytearray(data)
+            data = data[1:]
         else:
             data = 0
         return data

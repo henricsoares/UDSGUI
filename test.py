@@ -12,6 +12,13 @@ read = b'\x22' '''
                     bytes.fromhex(input('service: '))
 print(service, service.hex())'''
 # print('1010'.hex())
-chave = 'fa98f388a628a2409e5892a096889a7000c8'
-msg = bytes.fromhex(chave)
-print(msg.hex() == chave)
+'''pnum = (31383).to_bytes(3, 'big', signed=True)
+print(int(pnum, 16))
+pnum = bytearray(pnum)
+print(len(pnum))
+pnum = pnum[1:]
+print(pnum)
+print(type(pnum))
+a = b'\x00'
+a = a + pnum
+print(a.hex())'''
